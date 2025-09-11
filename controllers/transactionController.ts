@@ -3,45 +3,78 @@ import OpenAI from "openai";
 import { computeFacts } from "../utils/facts";
 import { collectMints } from "../utils/mints";
 import { fetchMintMetadata } from "../utils/mints";
-import { formatWhenFromSeconds, coerceModelOutput } from "../utils/helpers";
+import {
+  formatWhenFromSeconds,
+  coerceModelOutput,
+  pickPrimaryMintOne,
+  hasSwapOrMint,
+  jupTerminalBuyUrl,
+} from "../utils/helpers";
 
-const openai = new OpenAI({ apiKey: process.env['OPENAI_API_KEY']! });
+const openai = new OpenAI({ apiKey: process.env["OPENAI_API_KEY"]! });
 
 export async function explainTransaction(req: Request, res: Response) {
-    try {
-      const { signature, tz } = req.body || {};
-      if (!signature) return res.status(400).json({ error: "signature required" });
-      if (!tz) return res.status(400).json({ error: "timezone required" });
+  try {
+    const { signature, tz } = req.body || {};
+    if (!signature)
+      return res.status(400).json({ error: "signature required" });
+    if (!tz) return res.status(400).json({ error: "timezone required" });
 
-      // 1) Helius Enhanced Tx
-      const heliusUrl = `https://api.helius.xyz/v0/transactions?api-key=${process.env['HELIUS_API_KEY']}`;
-      const hResp = await fetch(heliusUrl, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ transactions: [signature] }),
-      });
-      if (!hResp.ok) {
-        const msg = await hResp.text();
-        return res.status(502).json({ error: `Helius ${hResp.status}: ${msg}` });
+    // 1) Helius Enhanced Tx
+    const heliusUrl = `https://api.helius.xyz/v0/transactions?api-key=${process.env["HELIUS_API_KEY"]}`;
+    const hResp = await fetch(heliusUrl, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ transactions: [signature] }),
+    });
+    if (!hResp.ok) {
+      const msg = await hResp.text();
+      return res.status(502).json({ error: `Helius ${hResp.status}: ${msg}` });
+    }
+    const heliusJson = await hResp.json();
+    if (!Array.isArray(heliusJson) || heliusJson.length === 0) {
+      return res.status(404).json({ error: "No transaction found" });
+    }
+    const tx = heliusJson[0];
+
+    // 2) when
+    const tsSec =
+      tx?.timestamp ??
+      tx?.blockTime ??
+      tx?.parsed?.timestamp ??
+      Math.floor(Date.now() / 1000);
+    const when = formatWhenFromSeconds(tsSec, tz);
+
+    // 3) facts (ground truth numbers)
+    const facts = computeFacts(tx);
+
+    const mints = collectMints(tx);
+    const mintsMeta = await fetchMintMetadata(
+      mints,
+      process.env["HELIUS_API_KEY"]!
+    );
+
+    let cta: any | undefined;
+    if (hasSwapOrMint(tx)) {
+      const primaryMint = pickPrimaryMintOne(facts);  // <-- new picker
+      if (primaryMint) {
+        const meta = mintsMeta[primaryMint] || {};
+        cta = {
+          primary: {
+            mint: primaryMint,
+            symbol: meta.symbol,
+            name: meta.name,
+            pair: { base: "SOL", quoteMint: primaryMint },
+            urlBuy:  jupTerminalBuyUrl(primaryMint),  // SOL -> token
+          },
+        };
       }
-      const heliusJson = await hResp.json();
-      if (!Array.isArray(heliusJson) || heliusJson.length === 0) {
-        return res.status(404).json({ error: "No transaction found" });
-      }
-      const tx = heliusJson[0];
+    }
 
-      // 2) when
-      const tsSec = (tx?.timestamp ?? tx?.blockTime ?? tx?.parsed?.timestamp) ?? Math.floor(Date.now() / 1000);
-      const when = formatWhenFromSeconds(tsSec, tz);
+    console.log("cta");
 
-      // 3) facts (ground truth numbers)
-      const facts = computeFacts(tx);
-
-      const mints = collectMints(tx);
-      const mintsMeta = await fetchMintMetadata(mints, process.env['HELIUS_API_KEY']!);
-
-      // 4) prompts
-      const SYSTEM = `
+    // 4) prompts
+    const SYSTEM = `
 You are a Solana transaction explainer for normies.
 
 OUTPUT CONTRACT
@@ -73,6 +106,7 @@ CLASSIFICATION
 - If tx.type === "SWAP" OR events.swap exists OR facts.swap exists OR facts.program ∈ {"Jupiter","Orca","Raydium","Pump.fun"}, describe it as a "swap" (not a "transfer").
 - Only call it a "transfer" when there is no swap signal and only native SOL moved.
 - Mention the received tokens and sent tokens if available.
+- When listing swap inputs/outputs, use net amounts per mint for the fee payer (received - sent) and ignore tiny routing dust.
 
 REQUIRED CONTENT (when available)
 - If facts.program exists, explicitly say "on {facts.program}" or "via {facts.program}".
@@ -112,41 +146,48 @@ STRICTNESS
 - If nothing recognizable, return minimal JSON with a cautious explainer and any certain facts (e.g., fee, when).
 `.trim();
 
-      const USER = `
+    const USER = `
 Summarize this Solana transaction. Use the provided "when" verbatim.
 Avoid addresses (redact if unavoidable). Prefer program names. State exact wallet counts if derivable.
 `.trim();
 
-      // 5) OpenAI
-      const ai = await openai.chat.completions.create({
-        model: "gpt-4o-mini",
-        temperature: 0,
-        response_format: { type: "json_object" },
-        messages: [
-          { role: "system", content: SYSTEM },
-          {
-            role: "user",
-            content: [
-              { type: "text", text: USER },
-              // Pass data. If your SDK doesn't support typed parts, send a single string with
-              // plain JSON (not escaped). Otherwise prefer the structured part as below:
-              { type: "text", text: JSON.stringify({ tx, when, facts, mintsMeta }) },
-            ],
-          },
-        ],
-      });
+    // 5) OpenAI
+    const ai = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      temperature: 0,
+      response_format: { type: "json_object" },
+      messages: [
+        { role: "system", content: SYSTEM },
+        {
+          role: "user",
+          content: [
+            { type: "text", text: USER },
+            // Pass data. If your SDK doesn't support typed parts, send a single string with
+            // plain JSON (not escaped). Otherwise prefer the structured part as below:
+            {
+              type: "text",
+              text: JSON.stringify({ tx, when, facts, mintsMeta }),
+            },
+          ],
+        },
+      ],
+    });
 
-      console.log(JSON.parse(ai.choices?.[0]?.message?.content || "{}"));
-
-      const raw = ai.choices?.[0]?.message?.content?.trim() || "{}";
-      let parsed: any;
-      try { parsed = JSON.parse(raw); } catch { parsed = { explainer: raw, when }; }
-
-      // 6) guard shape
-      const safe = coerceModelOutput(parsed, when);
-      return res.json(safe);
-    } catch (e: any) {
-      console.error(e);
-      return res.status(500).json({ error: e?.message || "server error" });
+    const raw = ai.choices?.[0]?.message?.content?.trim() || "{}";
+    let parsed: any;
+    try {
+      parsed = JSON.parse(raw);
+    } catch {
+      parsed = { explainer: raw, when };
     }
+
+    // 6) guard shape
+    const safe = coerceModelOutput(parsed, when);
+    if (cta) (safe as any).cta = cta;
+
+    return res.json(safe);
+  } catch (e: any) {
+    console.error(e);
+    return res.status(500).json({ error: e?.message || "server error" });
+  }
 }

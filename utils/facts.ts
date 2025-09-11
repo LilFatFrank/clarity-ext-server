@@ -210,44 +210,43 @@ export function computeFacts(tx: Response): Facts {
 
   // swap: prefer events.swap; fallback to byMint + SOL/wSOL deltas
   if (tx.type === Type.SWAP || tx.events?.swap) {
-    const ev = tx.events?.swap;
-    const out: NonNullable<Facts["swap"]> = {
-      inputTokens: [],
-      outputTokens: [],
-    };
-    if (facts.program) out.program = facts.program;
+  const out: NonNullable<Facts["swap"]> = { inputTokens: [], outputTokens: [] };
+  if (facts.program) out.program = facts.program;
+  (out as any).view = "trader";
 
-    // native input (lamports) if present
-    const nativeIn = lamportsToSol(ev?.nativeInput?.amount);
-    if (nativeIn > 0) out.inputSol = nativeIn;
-
-    // event token outputs (raw → decimals)
-    if (ev && Array.isArray(ev.tokenOutputs) && ev.tokenOutputs.length) {
-      for (const o of ev.tokenOutputs) {
-        const mint = o?.mint;
-        const raw = Number(o?.rawTokenAmount?.tokenAmount || 0);
-        const dec = Number(o?.rawTokenAmount?.decimals ?? 0);
-        if (mint && raw && dec >= 0) {
-          out.outputTokens!.push({ mint, amount: raw / 10 ** dec });
-        }
-      }
-    } else {
-      // fallback: user-centric view from byMint
-      for (const [mint, agg] of Object.entries(byMint)) {
-        if (agg.recv > 0) out.outputTokens!.push({ mint, amount: agg.recv });
-        if (isSolMint(mint) && agg.sent > 0) {
-          out.inputSol = (out.inputSol ?? 0) + agg.sent; // wSOL spent
-        }
-      }
-    }
-
-    facts.participants = {
-      recipients: facts.airdrop?.recipientCount ?? 0,
-      totalWallets: facts.walletCount ?? 0,
-    };
-
-    facts.swap = out;
+  // 1) Build net deltas from byMint (recv - sent) for the fee payer.
+  const netByMint: Record<string, number> = {};
+  for (const [mint, agg] of Object.entries(facts.byMint || {})) {
+    const net = (agg.recv || 0) - (agg.sent || 0);
+    // Ignore tiny routing dust (helius decimals: 1e-6 for SPL, 1e-9 for SOL)
+    const eps = isSolMint(mint) ? 1e-9 : 1e-6;
+    if (Math.abs(net) > eps) netByMint[mint] = net;
   }
+
+  // 2) Classify: net<0 => input; net>0 => output. Treat wSOL as SOL.
+  for (const [mint, net] of Object.entries(netByMint)) {
+    if (isSolMint(mint)) {
+      if (net < 0) out.inputSol = (out.inputSol ?? 0) + Math.abs(net);
+      else if (net > 0) (out as any).outputSol = ((out as any).outputSol ?? 0) + net;
+      continue;
+    }
+    if (net > 0) out.outputTokens!.push({ mint, amount: net });
+    else out.inputTokens!.push({ mint, amount: Math.abs(net) });
+  }
+
+  // 3) If events.swap has exact native lamports input, prefer adding it.
+  const ev = tx.events?.swap;
+  const nativeInSol = lamportsToSol(ev?.nativeInput?.amount);
+  if (nativeInSol > 0) out.inputSol = (out.inputSol ?? 0) + nativeInSol;
+
+  // Participants (optional context)
+  facts.participants = {
+    recipients: facts.airdrop?.recipientCount ?? 0,
+    totalWallets: facts.walletCount ?? 0,
+  };
+
+  facts.swap = out;
+}
 
   return facts;
 }
