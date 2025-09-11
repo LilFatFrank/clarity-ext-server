@@ -71,8 +71,6 @@ export async function explainTransaction(req: Request, res: Response) {
       }
     }
 
-    console.log("cta");
-
     // 4) prompts
     const SYSTEM = `
 You are a Solana transaction explainer for normies.
