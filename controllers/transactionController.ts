@@ -20,7 +20,7 @@ export async function explainTransaction(req: Request, res: Response) {
       return res.status(400).json({ error: "signature required" });
     if (!tz) return res.status(400).json({ error: "timezone required" });
 
-    // 1) Helius Enhanced Tx
+    // 1) Helius Enhanced Tx - API key stays on server
     const heliusUrl = `https://api.helius.xyz/v0/transactions?api-key=${process.env["HELIUS_API_KEY"]}`;
     const hResp = await fetch(heliusUrl, {
       method: "POST",

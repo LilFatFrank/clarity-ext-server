@@ -49,7 +49,7 @@ export async function fetchMintMetadata(mints: string[], apiKey: string): Promis
   const url = `https://mainnet.helius-rpc.com/?api-key=${apiKey}`;
   const body = {
     jsonrpc: "2.0",
-    id: "tx-clarity",
+    id: "vizor",
     method: "getAssetBatch",
     params: { ids },
   };
