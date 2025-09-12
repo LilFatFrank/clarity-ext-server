@@ -38,6 +38,16 @@ app.use((req, res, next) => {
 // Health check
 app.get("/health", (_req, res) => res.json({ ok: true }));
 
+// Debug endpoint to check environment variables
+app.get("/debug", (_req, res) => {
+  res.json({
+    nodeEnv: process.env['NODE_ENV'],
+    hasOpenAI: !!process.env['OPENAI_API_KEY'],
+    hasHelius: !!process.env['HELIUS_API_KEY'],
+    timestamp: new Date().toISOString()
+  });
+});
+
 // API routes
 app.use("/api", routes);
 
@@ -45,8 +55,13 @@ app.use("/api", routes);
 app.use(notFound);
 app.use(errorHandler);
 
-const PORT = process.env['PORT'] || 8787;
+// For Vercel serverless, export the app instead of listening
+export default app;
 
-app.listen(PORT, () => {
-  console.log(`[vizor] backend listening on http://localhost:${PORT}`);
-});
+// For local development, still listen on a port
+if (process.env['NODE_ENV'] !== 'production') {
+  const PORT = process.env['PORT'] || 8787;
+  app.listen(PORT, () => {
+    console.log(`[vizor] backend listening on http://localhost:${PORT}`);
+  });
+}
