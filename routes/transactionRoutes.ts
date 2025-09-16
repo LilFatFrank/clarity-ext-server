@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { explainTransaction } from "../controllers/transactionController";
-import { validateExplainRequest, validateExtensionRequest } from "../middleware/validation";
+import { validateExplainRequest } from "../middleware/validation";
+import { validateExtensionRequest } from "../middleware/errorHandler";
 
 const router = Router();
 

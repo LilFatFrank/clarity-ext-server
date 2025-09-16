@@ -1,14 +1,14 @@
 import { Request, Response, NextFunction } from "express";
 
-export const validateExplainRequest = (
+export const validateWalletRequest = (
   req: Request,
   res: Response,
   next: NextFunction
 ) => {
-  const { signature, tz } = req.body;
+  const { address, tz } = req.body;
 
-  if (!signature) {
-    return res.status(400).json({ error: "signature is required" });
+  if (!address) {
+    return res.status(400).json({ error: "address is required" });
   }
 
   if (!tz) {
@@ -16,8 +16,8 @@ export const validateExplainRequest = (
   }
 
   // Basic validation for signature format (Solana signatures are base58, ~88 chars)
-  if (typeof signature !== "string" || signature.length < 80 || signature.length > 100) {
-    return res.status(400).json({ error: "invalid signature format" });
+  if (typeof address !== "string") {
+    return res.status(400).json({ error: "invalid address format" });
   }
 
   // Basic validation for timezone (IANA timezone format)

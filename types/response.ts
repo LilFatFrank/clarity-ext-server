@@ -25,6 +25,7 @@ export interface Response {
       toTokenAccount: string;
       tokenAmount: number;
       mint: string;
+      tokenStandard: string;
     }
   ];
   accountData: [
@@ -141,6 +142,7 @@ export interface Response {
               toTokenAccount: string;
               tokenAmount: number;
               mint: string;
+              tokenStandard: string;
             }
           ];
           tokenOutputs: [
@@ -151,6 +153,7 @@ export interface Response {
               toTokenAccount: string;
               tokenAmount: number;
               mint: string;
+              tokenStandard: string;
             }
           ];
           tokenFees: [
@@ -161,6 +164,7 @@ export interface Response {
               toTokenAccount: string;
               tokenAmount: number;
               mint: string;
+              tokenStandard: string;
             }
           ];
           nativeFees: [
