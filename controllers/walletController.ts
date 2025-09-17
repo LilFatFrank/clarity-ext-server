@@ -28,7 +28,7 @@ export async function getWalletInsights(req: Request, res: Response) {
     if (!apiKey) return res.status(500).json({ error: "HELIUS_API_KEY missing" });
 
     const txs = await fetchRecentAddressTxs(address, n, apiKey);
-    const insights = computeWalletInsights(txs, tz);
+    const insights = computeWalletInsights(txs, tz, { mainWallet: address });
     return res.json({ address, tz, insights });
   } catch (e: any) {
     console.error(e);

@@ -5,6 +5,7 @@ import { Facts } from "../types/facts";
 import { Response } from "../types/response";
 import { Source } from "../types/sources";
 import { Type } from "../types/types";
+import { WSOL_MINT } from "./mints";
 
 // ---- helpers ---------------------------------------------------------------
 const asArr = <T>(x: T[] | undefined | null): T[] =>
@@ -164,6 +165,84 @@ export function computeFacts(tx: Response): Facts {
     if (fp && t?.toUserAccount === fp) byMint[t.mint]!.recv += amt;
   }
   facts.byMint = byMint;
+
+  // ---- replace BOTH of your swap blocks with this single block ----
+if (tx.type === Type.SWAP || tx.events?.swap) {
+  // Did the fee payer actually move any SPL (non-wSOL)?
+  const fpHasSpl = Object.entries(facts.byMint || {}).some(
+    ([mint, v]: any) => mint !== WSOL_MINT && ((v.sent || 0) + (v.recv || 0)) > 0
+  );
+
+  // Participants (context)
+  facts.participants = {
+    recipients: facts.airdrop?.recipientCount ?? 0,
+    totalWallets: facts.walletCount ?? 0,
+  };
+
+  if (!fpHasSpl) {
+    // AMBIENT: fee payer only paid native/ATA; tokens moved between other wallets
+    const routeTotals: Record<string, number> = {};
+    for (const t of Array.isArray(tx?.tokenTransfers) ? tx.tokenTransfers : []) {
+      if (!t?.mint) continue;
+      const amt = Number(t.tokenAmount || 0);
+      if (!amt) continue;
+      routeTotals[t.mint] = (routeTotals[t.mint] || 0) + amt;
+    }
+
+    const routeOutputs = Object.entries(routeTotals)
+      .filter(([mint]) => mint !== WSOL_MINT)
+      .map(([mint, amount]) => ({ mint, amount: Number(amount) }));
+
+    facts.swap = {
+      inputTokens: [],
+      outputTokens: [],
+      view: "ambient" as const,
+      routeOutputs,
+      routeSol: Number(routeTotals[WSOL_MINT] || 0),
+      ...(facts.program ? { program: facts.program } : {}),
+    };
+  } else {
+    // TRADER: fee payer actually swapped
+    const out: NonNullable<Facts["swap"]> = { inputTokens: [], outputTokens: [] };
+    if (facts.program) out.program = facts.program;
+    (out as any).view = "trader";
+
+    // Build net deltas for fee payer (recv - sent)
+    const netByMint: Record<string, number> = {};
+    for (const [mint, agg] of Object.entries(facts.byMint || {})) {
+      const net = (agg.recv || 0) - (agg.sent || 0);
+      const eps = mint === WSOL_MINT ? 1e-9 : 1e-6; // ignore routing dust
+      if (Math.abs(net) > eps) netByMint[mint] = net;
+    }
+
+    for (const [mint, net] of Object.entries(netByMint)) {
+      if (mint === WSOL_MINT) {
+        if (net < 0) out.inputSol = (out.inputSol ?? 0) + Math.abs(net);
+        else if (net > 0) (out as any).outputSol = ((out as any).outputSol ?? 0) + net;
+      } else if (net > 0) {
+        out.outputTokens!.push({ mint, amount: net });
+      } else {
+        out.inputTokens!.push({ mint, amount: Math.abs(net) });
+      }
+    }
+
+    // Prefer exact native lamports input from events.swap if present
+    const ev = tx.events?.swap;
+    const nativeInSol = (typeof ev?.nativeInput?.amount === "number"
+      ? ev.nativeInput.amount
+      : Number(ev?.nativeInput?.amount || 0)) / 1_000_000_000;
+    if (nativeInSol > 0) out.inputSol = (out.inputSol ?? 0) + nativeInSol;
+
+    facts.swap = out;
+  }
+
+  // set a context flag once here
+  (facts as any).context = {
+    ...(facts as any).context,
+    feePayerOnlyNative: !fpHasSpl,
+  };
+}
+
 
   // airdrop / multisend: uniform sends from feePayer, single mint, >1 recipients
   if (tx.type === Type.TRANSFER && tts.length > 1 && fp) {

@@ -25,6 +25,9 @@ export interface Facts {
     inputSol?: number; // user SOL/wSOL spent
     inputTokens?: { mint: string; amount: number }[];
     outputTokens?: { mint: string; amount: number }[];
+    view?: "trader" | "ambient";
+    routeOutputs?: { mint: string; amount: number }[];
+    routeSol?: number;
   };
 
   participants?: {
