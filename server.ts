@@ -41,16 +41,6 @@ app.use((req, _res, next) => {
 // Health check
 app.get("/health", (_req, res) => res.json({ ok: true }));
 
-// Debug endpoint to check environment variables
-app.get("/debug", (_req, res) => {
-  res.json({
-    nodeEnv: process.env['NODE_ENV'],
-    hasOpenAI: !!process.env['OPENAI_API_KEY'],
-    hasHelius: !!process.env['HELIUS_API_KEY'],
-    timestamp: new Date().toISOString()
-  });
-});
-
 // API routes
 app.use("/api", routes);
 
