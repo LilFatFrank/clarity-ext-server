@@ -19,9 +19,18 @@ app.use(rateLimiter);
 
 // CORS and body parsing
 app.use(cors({ 
-  origin: process.env['NODE_ENV'] === 'production' 
-    ? false // Extensions bypass CORS anyway, so we can be restrictive
-    : true, // Allow all in development
+  origin: (origin, callback) => {
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+    
+    // Allow Chrome extension origins
+    if (origin.startsWith('chrome-extension://')) {
+      return callback(null, true);
+    }
+    
+    // Block all other origins in production
+    callback(new Error('Not allowed by CORS'));
+  },
   credentials: false // Don't send cookies with extension requests
 }));
 app.use(express.json({ limit: "1mb" }));
