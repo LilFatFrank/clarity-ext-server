@@ -1,6 +1,6 @@
 import { Router } from "express";
-import transactionRoutes from "./transactionRoutes";
-import walletRoutes from "./walletRoutes";
+import transactionRoutes from "./transactionRoutes.js";
+import walletRoutes from "./walletRoutes.js";
 
 const router = Router();
 

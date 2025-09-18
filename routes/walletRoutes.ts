@@ -1,7 +1,7 @@
 import { Router } from "express";
-import { validateExtensionRequest } from "../middleware/errorHandler";
-import { validateWalletRequest } from "../middleware/walletValidation";
-import { getWalletInsights } from "../controllers/walletController";
+import { validateExtensionRequest } from "../middleware/errorHandler.js";
+import { validateWalletRequest } from "../middleware/walletValidation.js";
+import { getWalletInsights } from "../controllers/walletController.js";
 
 const router = Router();
 

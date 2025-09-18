@@ -1,11 +1,11 @@
 // ---- types you already have ----
 // import { Response, Source, Type } from "./types"; // adjust path as needed
 
-import { Facts } from "../types/facts";
-import { Response } from "../types/response";
-import { Source } from "../types/sources";
-import { Type } from "../types/types";
-import { WSOL_MINT } from "./mints";
+import { Facts } from "../types/facts.js";
+import { Response } from "../types/response.js";
+import { Source } from "../types/sources.js";
+import { Type } from "../types/types.js";
+import { WSOL_MINT } from "./mints.js";
 
 // ---- helpers ---------------------------------------------------------------
 const asArr = <T>(x: T[] | undefined | null): T[] =>

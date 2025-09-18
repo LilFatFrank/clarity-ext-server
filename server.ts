@@ -3,9 +3,9 @@ import "dotenv/config";
 import express from "express";
 import cors from "cors";
 import routes from "./routes/index.js";
-import { errorHandler, notFound } from "./middleware/errorHandler";
-import { rateLimiter } from "./middleware/rateLimiter";
-import { securityHeaders, securityLogger } from "./middleware/security";
+import { errorHandler, notFound } from "./middleware/errorHandler.js";
+import { rateLimiter } from "./middleware/rateLimiter.js";
+import { securityHeaders, securityLogger } from "./middleware/security.js";
 
 const app = express();
 

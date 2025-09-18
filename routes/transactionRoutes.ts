@@ -1,7 +1,7 @@
 import { Router } from "express";
-import { explainTransaction } from "../controllers/transactionController";
-import { validateExplainRequest } from "../middleware/validation";
-import { validateExtensionRequest } from "../middleware/errorHandler";
+import { explainTransaction } from "../controllers/transactionController.js";
+import { validateExplainRequest } from "../middleware/validation.js";
+import { validateExtensionRequest } from "../middleware/errorHandler.js";
 
 const router = Router();
 

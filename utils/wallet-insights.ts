@@ -1,4 +1,4 @@
-import { Response as Tx } from "../types/response";
+import { Response as Tx } from "../types/response.js";
 
 const asArr = <T>(x: T[] | undefined | null): T[] => (Array.isArray(x) ? x : []);
 const LAMPORTS_PER_SOL = 1_000_000_000;

@@ -1,5 +1,5 @@
-import { Facts } from "../types/facts";
-import { WSOL_MINT } from "./mints";
+import { Facts } from "../types/facts.js";
+import { WSOL_MINT } from "./mints.js";
 
 // ---------- helpers ----------
 export function formatWhenFromSeconds(epochSeconds: number, tz: string) {

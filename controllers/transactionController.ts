@@ -1,15 +1,15 @@
 import { Request, Response } from "express";
 import OpenAI from "openai";
-import { computeFacts } from "../utils/facts";
-import { collectMints } from "../utils/mints";
-import { fetchMintMetadata } from "../utils/mints";
+import { computeFacts } from "../utils/facts.js";
+import { collectMints } from "../utils/mints.js";
+import { fetchMintMetadata } from "../utils/mints.js";
 import {
   formatWhenFromSeconds,
   coerceModelOutput,
   pickPrimaryMintOne,
   hasSwapOrMint,
   jupTerminalBuyUrl,
-} from "../utils/helpers";
+} from "../utils/helpers.js";
 
 const openai = new OpenAI({ apiKey: process.env["OPENAI_API_KEY"]! });
 

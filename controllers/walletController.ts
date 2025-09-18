@@ -1,6 +1,6 @@
 // src/controllers/wallet.ts
 import { Request, Response } from "express";
-import { computeWalletInsights } from "../utils/wallet-insights";
+import { computeWalletInsights } from "../utils/wallet-insights.js";
 
 // NOTE: Helius "enhanced transactions by address" endpoint.
 // If your key is set, this should work out of the box.
