@@ -2,13 +2,22 @@
 import "dotenv/config";
 import express from "express";
 import cors from "cors";
-import routes from "./routes";
+import routes from "./routes/index.js";
 import { errorHandler, notFound } from "./middleware/errorHandler";
+import { rateLimiter } from "./middleware/rateLimiter";
+import { securityHeaders, securityLogger } from "./middleware/security";
 
 const app = express();
 
-// Middleware
-// For browser extensions, we need to be more permissive but still secure
+// Trust proxy for accurate IP addresses (important for rate limiting)
+app.set('trust proxy', 1);
+
+// Security middleware (order matters!)
+app.use(securityHeaders);
+app.use(securityLogger);
+app.use(rateLimiter);
+
+// CORS and body parsing
 app.use(cors({ 
   origin: process.env['NODE_ENV'] === 'production' 
     ? false // Extensions bypass CORS anyway, so we can be restrictive
@@ -17,20 +26,14 @@ app.use(cors({
 }));
 app.use(express.json({ limit: "1mb" }));
 
-// Security headers for extension communication
-app.use((req, res, next) => {
-  // Allow extension requests (they'll have no origin or chrome-extension:// origin)
+// Extension request logging
+app.use((req, _res, next) => {
   const origin = req.get('origin');
   
   // Log extension requests for monitoring
   if (!origin || origin.startsWith('chrome-extension://')) {
     console.log(`Extension request from: ${origin || 'no-origin'} - ${req.method} ${req.path}`);
   }
-  
-  // Set security headers
-  res.setHeader('X-Content-Type-Options', 'nosniff');
-  res.setHeader('X-Frame-Options', 'DENY');
-  res.setHeader('X-XSS-Protection', '1; mode=block');
   
   next();
 });

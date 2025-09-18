@@ -1,4 +1,5 @@
 import { Request, Response, NextFunction } from "express";
+import { PublicKey } from "@solana/web3.js";
 
 export const validateWalletRequest = (
   req: Request,
@@ -15,8 +16,19 @@ export const validateWalletRequest = (
     return res.status(400).json({ error: "timezone is required" });
   }
 
-  // Basic validation for signature format (Solana signatures are base58, ~88 chars)
+  // Enhanced validation for Solana address format
   if (typeof address !== "string") {
+    return res.status(400).json({ error: "invalid address format" });
+  }
+  
+  // Validate Solana address format (base58, 32-44 chars)
+  if (new PublicKey(address).toBase58() !== address) {
+    return res.status(400).json({ error: "invalid address length" });
+  }
+  
+  // Validate base58 characters only
+  const base58Regex = /^[1-9A-HJ-NP-Za-km-z]+$/;
+  if (!base58Regex.test(address)) {
     return res.status(400).json({ error: "invalid address format" });
   }
 
