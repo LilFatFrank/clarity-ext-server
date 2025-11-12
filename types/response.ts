@@ -1,5 +1,5 @@
-import { Source } from "./sources";
-import { Type } from "./types";
+import { Source } from "./sources.js";
+import { Type } from "./types.js";
 
 export interface Response {
   description: string;

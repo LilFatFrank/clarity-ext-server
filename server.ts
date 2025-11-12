@@ -6,8 +6,12 @@ import routes from "./routes/index.js";
 import { errorHandler, notFound } from "./middleware/errorHandler.js";
 import { rateLimiter } from "./middleware/rateLimiter.js";
 import { securityHeaders, securityLogger } from "./middleware/security.js";
+import { paymentMiddleware } from "x402-express";
+import { SolanaAddress } from "x402-express";
 
 const app = express();
+const facilitatorUrl = "https://facilitator.payai.network";
+const payTo = process.env['ADDRESS'] as SolanaAddress;
 
 // Trust proxy for accurate IP addresses (important for rate limiting)
 app.set('trust proxy', 1);
@@ -46,6 +50,27 @@ app.use((req, _res, next) => {
   
   next();
 });
+
+app.use(
+  paymentMiddleware(
+    payTo,
+    {
+      "/api/*": {
+        price: {
+          amount: "10000",
+          asset: {
+            address: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+            decimals: 6,
+          },
+        },
+        network: "solana",
+      },
+    },
+    {
+      url: facilitatorUrl,
+    },
+  ),
+);
 
 // Health check
 app.get("/health", (_req, res) => res.json({ ok: true }));
