@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import OpenAI from "openai";
+import { OpenAI } from "openai";
 import { computeFacts } from "../utils/facts.js";
 import { collectMints } from "../utils/mints.js";
 import { fetchMintMetadata } from "../utils/mints.js";
